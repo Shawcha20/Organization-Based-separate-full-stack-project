@@ -1,4 +1,8 @@
-require('dotenv').config();
+const path = require('path');
+
+// Resolved from this file, not from process.cwd(), so the server starts the
+// same way whether it is launched from backend/ or from backend/src/.
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const { z } = require('zod');
 

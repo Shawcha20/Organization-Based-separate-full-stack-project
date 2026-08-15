@@ -20,6 +20,21 @@ async function currentSubscription(orgId) {
   return Subscription.findOne({ organization: orgId }).sort({ createdAt: -1 }).populate('plan');
 }
 
+/**
+ * Anything that changes a subscription has to go through Stripe, so a
+ * subscription with no Stripe id cannot be changed here. Seeded demo data is
+ * the usual reason - it was inserted directly rather than bought through
+ * Checkout.
+ */
+function requireStripeLink(subscription) {
+  if (!subscription.stripeSubscriptionId) {
+    throw AppError.badRequest(
+      'This subscription is not linked to Stripe, so it cannot be changed. ' +
+        'Register an organization through checkout to manage a live subscription.'
+    );
+  }
+}
+
 const getSubscription = asyncHandler(async (req, res) => {
   const subscription = await currentSubscription(req.orgId);
   if (!subscription) throw AppError.notFound('No subscription found for this organization');
@@ -47,6 +62,8 @@ const changePlan = asyncHandler(async (req, res) => {
   if (plan._id.equals(subscription.plan?._id)) {
     throw AppError.badRequest('You are already on that plan');
   }
+
+  requireStripeLink(subscription);
 
   const isUpgrade = plan.price > subscription.amount;
 
@@ -92,6 +109,8 @@ const cancelSubscription = asyncHandler(async (req, res) => {
   if (subscription.cancelAtPeriodEnd || subscription.status === SUBSCRIPTION_STATUS.CANCELLED) {
     throw AppError.badRequest('This subscription is already cancelled');
   }
+
+  requireStripeLink(subscription);
 
   await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
     cancel_at_period_end: true,

@@ -26,6 +26,16 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 409;
     message = 'That record already exists';
     details = undefined;
+  } else if (err.type && String(err.type).startsWith('Stripe')) {
+    // Stripe's own messages are written for end users ("Your card was
+    // declined"), so they are safe to surface. Anything vaguer than that gets
+    // a generic line rather than an empty 500.
+    statusCode = err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 502;
+    message =
+      err.type === 'StripeCardError'
+        ? err.message
+        : `Stripe could not complete this request: ${err.message}`;
+    details = undefined;
   } else if (!err.isOperational) {
     // Unexpected: log the real thing server-side, tell the client nothing.
     statusCode = 500;

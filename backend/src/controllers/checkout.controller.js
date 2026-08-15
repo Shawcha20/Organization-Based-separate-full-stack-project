@@ -99,6 +99,11 @@ const status = asyncHandler(async (req, res) => {
   const pending = await PendingRegistration.findOne({ stripeSessionId: sessionId });
   if (!pending) throw AppError.notFound('That checkout session is not recognised');
 
+  // The success page polls this while the status is PENDING. Without this the
+  // unchanged body is served from cache as a 304, which is harmless but makes
+  // the network log look like the request is failing.
+  res.set('Cache-Control', 'no-store');
+
   res.json({
     status: pending.status,
     registrationId: pending._id,
