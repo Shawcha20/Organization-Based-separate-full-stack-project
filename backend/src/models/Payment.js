@@ -40,9 +40,13 @@ const paymentSchema = new mongoose.Schema(
 paymentSchema.index({ organization: 1, createdAt: -1 });
 paymentSchema.index({ organization: 1, status: 1 });
 
-// Stripe can deliver the same invoice event more than once. A unique (sparse)
-// index makes a duplicate insert fail loudly instead of silently double-billing
-// the history table.
-paymentSchema.index({ stripeInvoiceId: 1 }, { unique: true, sparse: true });
+// Stripe can deliver the same invoice event more than once, so the invoice id
+// is unique. It has to be a *partial* index rather than a sparse one: the field
+// defaults to null, and a sparse index still indexes an explicit null, which
+// would make any two invoice-less payments collide.
+paymentSchema.index(
+  { stripeInvoiceId: 1 },
+  { unique: true, partialFilterExpression: { stripeInvoiceId: { $type: 'string' } } }
+);
 
 module.exports = mongoose.model('Payment', paymentSchema);
